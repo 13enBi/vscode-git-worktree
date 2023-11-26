@@ -1,28 +1,33 @@
+import { P, match } from 'ts-pattern';
 import * as vscode from 'vscode';
+import { GitApi, GitWorktree, getGitApi } from '../helpers/git';
 
-export class WorktreeItem extends vscode.TreeItem {
-    constructor(public label: string) {
-        super(label, vscode.TreeItemCollapsibleState.None);
+export class WorktreeViewItem extends vscode.TreeItem {
+    constructor(item: GitWorktree) {
+        super(item.name, vscode.TreeItemCollapsibleState.None);
         this.iconPath = new vscode.ThemeIcon('git-branch');
     }
 }
 
-export class WorktreeList extends vscode.TreeItem implements vscode.TreeDataProvider<WorktreeItem> {
+export class WorktreeViewList extends vscode.TreeItem {
+    worktreeList: GitWorktree[] = [];
+
     constructor(public workspaceFolder: vscode.WorkspaceFolder) {
         super(workspaceFolder.name, vscode.TreeItemCollapsibleState.Collapsed);
         this.iconPath = new vscode.ThemeIcon('repo');
     }
 
-    getTreeItem(element: WorktreeItem) {
-        return element;
+    async init() {
+        const gitApi = await getGitApi(this.workspaceFolder.uri);
+        this.worktreeList = await gitApi.worktree.getWorktreeList();
     }
 
     getChildren() {
-        return [new WorktreeItem('demo')];
+        return this.worktreeList.map(item => new WorktreeViewItem(item));
     }
 }
 
-export class WorkspaceFolders implements vscode.TreeDataProvider<vscode.TreeItem> {
+export class WorkspaceFoldersTreeProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
     constructor(public workspaceFolders: readonly vscode.WorkspaceFolder[] = []) {}
 
     getTreeItem(element: vscode.TreeItem) {
@@ -30,8 +35,17 @@ export class WorkspaceFolders implements vscode.TreeDataProvider<vscode.TreeItem
     }
 
     getChildren(element?: vscode.TreeItem) {
-        if (element instanceof WorktreeList) return element.getChildren();
-
-        return this.workspaceFolders.map(item => new WorktreeList(item));
+        return match(element)
+            .with(P.nullish, () => this.workspaceFolders.map(item => new WorktreeViewList(item)))
+            .with(P.instanceOf(WorktreeViewList), element => element.getChildren())
+            .otherwise(() => []);
     }
 }
+
+export const registerWorkspaceFoldersTreeProvider = (context: vscode.ExtensionContext) => {
+    const provider = new WorkspaceFoldersTreeProvider(vscode.workspace.workspaceFolders);
+    const view = vscode.window.registerTreeDataProvider('git-worktree-list', provider);
+    context.subscriptions.push(view);
+
+    return provider;
+};
