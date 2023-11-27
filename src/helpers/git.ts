@@ -1,14 +1,16 @@
 import { execaCommand } from 'execa';
-import { memoize } from 'lodash';
 import { match, P } from 'ts-pattern';
 import * as vscode from 'vscode';
 import { API, GitExtension, Repository } from '../types/git';
+import { memoize } from 'lodash';
 
-export const getVscodeGitApi = memoize<() => Promise<API | undefined>>(async () =>
-    match(vscode.extensions.getExtension<GitExtension>('vscode.git'))
-        .with(P.nullish, () => void 0)
-        .with({ isActive: true }, gitExtension => gitExtension.exports.getAPI(1))
-        .otherwise(gitExtension => gitExtension?.activate().then(ext => ext.getAPI(1)))
+export const getVscodeGitApi = memoize<() => API>(
+    () =>
+        match(vscode.extensions.getExtension<GitExtension>('vscode.git'))
+            .with(P.nullish, () => void 0)
+            .with({ isActive: true }, gitExtension => gitExtension.exports.getAPI(1))
+            .otherwise(() => null)
+    // .otherwise(gitExtension => gitExtension?.activate().then(ext => ext.getAPI(1)))
 );
 
 export class GitWorktree {
@@ -17,7 +19,10 @@ export class GitWorktree {
     hash = '';
     name = '';
 
-    constructor(input: string) {
+    constructor(
+        input: string,
+        public main = false
+    ) {
         const [path, ...lines] = input.trim().split('\n');
         this.path = path.replace(/^worktree\s*/, '');
 
@@ -50,15 +55,15 @@ export class GitWorktreeApi {
     async getWorktreeList() {
         const stdout = await this.$('git worktree list --porcelain');
 
-        return stdout.split(/\n\s/).map(input => new GitWorktree(input));
+        return stdout.split(/\n\s/).map((input, index) => new GitWorktree(input, index === 0));
     }
 }
 
-export type GitApi = Repository & {
+export type GitRepo = Repository & {
     worktree: GitWorktreeApi;
 };
-export const getGitApi = async (uri: vscode.Uri): Promise<GitApi> => {
-    const baseApi = await getVscodeGitApi();
+export const getGitRepo = (uri: vscode.Uri): GitRepo => {
+    const baseApi = getVscodeGitApi();
     const repo = baseApi?.getRepository(uri);
     if (!repo) return;
 
