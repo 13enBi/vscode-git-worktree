@@ -17,12 +17,19 @@
     "contributes": {
         "commands": [
             {
-                "command": "git-worktree-list.refresh",
+                "command": "git-worktree.refresh",
                 "title": "Refresh",
-                "icon": {
-                    "light": "resources/light/refresh.svg",
-                    "dark": "resources/dark/refresh.svg"
-                  }
+                "icon": "$(search-refresh)"
+            },
+            {
+                "command": "git-worktree.remove",
+                "title": "Remove",
+                "icon": "$(notebook-delete-cell)"
+            },
+            {
+                "command": "git-worktree.prune",
+                "title": "Prune",
+                "icon": "$(wand)"
             }
         ],
         "viewsContainers": {
@@ -49,10 +56,21 @@
             ]
         },
         "menus": {
-            "view/title": [
+            "view/item/context": [
                 {
-                    "command": "git-worktree-list.refresh",
-                    "group": "navigation"
+                    "command": "git-worktree.refresh",
+                    "group": "inline",
+                    "when": "viewItem == 'worktree-list'"
+                },
+                {
+                    "command": "git-worktree.remove",
+                    "group": "inline",
+                    "when": "viewItem == 'worktree-item'"
+                },
+                {
+                    "command": "git-worktree.prune",
+                    "group": "inline",
+                    "when": "viewItem == 'worktree-list'"
                 }
             ]
         }

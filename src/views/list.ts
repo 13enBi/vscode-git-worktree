@@ -39,6 +39,16 @@ export class WorktreeViewItem extends vscode.TreeItem {
             })
             .otherwise(async () => this);
     }
+
+    async remove() {
+        if (this.gitWorktree.main) {
+            return vscode.window.showErrorMessage(`?`);
+        }
+
+        await this.parent.gitRepo.worktree.remove(this.gitWorktree.path).catch(message => {
+            vscode.window.showErrorMessage(`Remove Worktree Failed,Reason: ${message}`);
+        });
+    }
 }
 
 export class WorktreeViewList extends vscode.TreeItem {
@@ -57,8 +67,12 @@ export class WorktreeViewList extends vscode.TreeItem {
     }
 
     async getChildren() {
-        const worktreeList = await this.gitRepo.worktree.getWorktreeList();
+        const worktreeList = await this.gitRepo.worktree.get();
         return Promise.all(worktreeList.map(item => new WorktreeViewItem(item, this).init()));
+    }
+
+    prune() {
+        this.gitRepo.worktree
     }
 }
 
@@ -95,7 +109,16 @@ export const registerWorkspaceFoldersTreeProvider = (context: vscode.ExtensionCo
     const view = vscode.window.registerTreeDataProvider('git-worktree-list', provider);
     context.subscriptions.push(view);
 
-    vscode.commands.registerCommand('git-worktree-list.refresh', () => provider.refresh());
+    vscode.window.showInformationMessage()
+
+    vscode.commands.registerCommand('git-worktree.refresh', () => provider.refresh());
+    vscode.commands.registerCommand('git-worktree.remove', async (node: WorktreeViewItem) => {
+        await node.remove();
+        provider.refresh();
+    });
+    vscode.commands.registerCommand('git-worktree.prune', async (node: WorktreeViewItem) => {
+        provider.refresh();
+    });
 
     return provider;
 };

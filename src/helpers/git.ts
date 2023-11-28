@@ -45,6 +45,8 @@ export class GitWorktree {
     }
 }
 
+const getArgs = (...args: any[]) => args.filter(Boolean).join(' ');
+
 export class GitWorktreeApi {
     constructor(private repo: Repository) {}
 
@@ -52,10 +54,18 @@ export class GitWorktreeApi {
         return execaCommand(command, { cwd: this.repo.rootUri.fsPath }).then(({ stdout }) => stdout);
     }
 
-    async getWorktreeList() {
+    async get() {
         const stdout = await this.$('git worktree list --porcelain');
 
         return stdout.split(/\n\s/).map((input, index) => new GitWorktree(input, index === 0));
+    }
+
+    async remove(worktreePath: string, options?: { force?: boolean }) {
+        await this.$(`git worktree remove ${getArgs(options?.force && '--force', worktreePath)}`);
+    }
+
+    async prune(options?: { 'dry-run'?: boolean }) {
+        this.$(`git worktree prune ${getArgs(options['dry-run'] && '--dry-run')}`);
     }
 }
 
