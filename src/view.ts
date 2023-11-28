@@ -82,7 +82,7 @@ export class WorktreeViewList extends vscode.TreeItem {
         this.provider.refresh();
     }
 
-    async addItem() {
+    async add() {
         const branches = await this.gitRepo.getBranches({ remote: true });
         const selectedBranch = await vscode.window
             .showQuickPick(createBranchPickItems(branches))
@@ -173,7 +173,7 @@ export const registerWorkspaceFoldersTreeProvider = (context: vscode.ExtensionCo
     vscode.commands.registerCommand('git-worktree.refresh', () => provider.refresh());
     vscode.commands.registerCommand('git-worktree.remove', (node: WorktreeViewItem) => node.remove());
     vscode.commands.registerCommand('git-worktree.prune', (node: WorktreeViewList) => node.prune());
-    vscode.commands.registerCommand('git-worktree.add', (node: WorktreeViewList) => node.addItem());
+    vscode.commands.registerCommand('git-worktree.add', (node: WorktreeViewList) => node.add());
 
     return provider;
 };
