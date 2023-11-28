@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { registerWorkspaceFoldersTreeProvider } from './views/list';
+import { registerWorkspaceFoldersTreeProvider } from './view';
 
 export const activate = async (context: vscode.ExtensionContext) => {
     registerWorkspaceFoldersTreeProvider(context);

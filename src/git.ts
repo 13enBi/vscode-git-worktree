@@ -1,13 +1,13 @@
 import { execaCommand } from 'execa';
 import { match, P } from 'ts-pattern';
 import * as vscode from 'vscode';
-import { API, GitExtension, Repository } from '../types/git';
+import { API, GitExtension, Repository } from './types/git';
 import { memoize } from 'lodash';
 
-export const getVscodeGitApi = memoize<() => API>(
+export const getVscodeGitApi = memoize<() => API | null>(
     () =>
         match(vscode.extensions.getExtension<GitExtension>('vscode.git'))
-            .with(P.nullish, () => void 0)
+            .with(P.nullish, () => null)
             .with({ isActive: true }, gitExtension => gitExtension.exports.getAPI(1))
             .otherwise(() => null)
     // .otherwise(gitExtension => gitExtension?.activate().then(ext => ext.getAPI(1)))
@@ -60,12 +60,24 @@ export class GitWorktreeApi {
         return stdout.split(/\n\s/).map((input, index) => new GitWorktree(input, index === 0));
     }
 
-    async remove(worktreePath: string, options?: { force?: boolean }) {
-        await this.$(`git worktree remove ${getArgs(options?.force && '--force', worktreePath)}`);
+    remove(worktreePath: string, options?: { force?: boolean }) {
+        return this.$(`git worktree remove ${getArgs(options?.force && '--force', worktreePath)}`);
     }
 
-    async prune(options?: { 'dry-run'?: boolean }) {
-        this.$(`git worktree prune ${getArgs(options['dry-run'] && '--dry-run')}`);
+    prune(options?: { 'dry-run'?: boolean }) {
+        return this.$(`git worktree prune ${getArgs(options?.['dry-run'] && '--dry-run')}`);
+    }
+
+    add(output: string, options?: { 'new-branch'?: string; force?: boolean; track?: boolean; 'commit-ish'?: string }) {
+        return this.$(
+            `git worktree add ${getArgs(
+                options?.force && '--force',
+                options?.track && '--track',
+                options?.['new-branch'] && `-b ${options['new-branch']}`,
+                output,
+                options?.['commit-ish']
+            )}`
+        );
     }
 }
 
@@ -75,7 +87,7 @@ export type GitRepo = Repository & {
 export const getGitRepo = (uri: vscode.Uri): GitRepo => {
     const baseApi = getVscodeGitApi();
     const repo = baseApi?.getRepository(uri);
-    if (!repo) return;
+    if (!repo) throw new Error(`get git repo fail, path: ${uri.path}`);
 
     return Object.assign(repo, { worktree: new GitWorktreeApi(repo) });
 };

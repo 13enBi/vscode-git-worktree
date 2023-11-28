@@ -15,6 +15,23 @@
     "activationEvents": [],
     "main": "./dist/extension.js",
     "contributes": {
+        "configuration": {
+            "title": "git-worktree",
+            "properties": {
+                "git-worktree.defaultLocation": {
+                    "type": "string",
+                    "default": null,
+                    "markdownDescription": "Specifies the default path in which new worktrees will be created",
+                    "scope": "resource"
+                },
+                "git-worktree.openWithWorkspace": {
+                    "scope": "application",
+                    "type": "boolean",
+                    "default": true,
+                    "markdownDescription": "Open with vscode workspace"
+                }
+            }
+        },
         "commands": [
             {
                 "command": "git-worktree.refresh",
@@ -30,6 +47,11 @@
                 "command": "git-worktree.prune",
                 "title": "Prune",
                 "icon": "$(wand)"
+            },
+            {
+                "command": "git-worktree.add",
+                "title": "Add",
+                "icon": "$(keybindings-add)"
             }
         ],
         "viewsContainers": {
@@ -56,6 +78,12 @@
             ]
         },
         "menus": {
+            "view/title": [
+                {
+                    "command": "git-worktree.refresh",
+                    "group": "navigation"
+                }
+            ],
             "view/item/context": [
                 {
                     "command": "git-worktree.refresh",
@@ -69,6 +97,11 @@
                 },
                 {
                     "command": "git-worktree.prune",
+                    "group": "inline",
+                    "when": "viewItem == 'worktree-list'"
+                },
+                {
+                    "command": "git-worktree.add",
                     "group": "inline",
                     "when": "viewItem == 'worktree-list'"
                 }
