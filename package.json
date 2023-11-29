@@ -2,6 +2,7 @@
     "name": "vscode-git-worktree",
     "displayName": "vscode-git-worktree",
     "description": "",
+    "publisher": "13enbi",
     "version": "0.0.1",
     "engines": {
         "vscode": "^1.84.0"
@@ -34,24 +35,37 @@
         },
         "commands": [
             {
-                "command": "git-worktree.refresh",
+                "command": "git-worktree.list.refresh",
                 "title": "Refresh",
                 "icon": "$(search-refresh)"
             },
             {
-                "command": "git-worktree.remove",
+                "command": "git-worktree.item.remove",
                 "title": "Remove",
                 "icon": "$(notebook-delete-cell)"
             },
             {
-                "command": "git-worktree.prune",
+                "command": "git-worktree.list.prune",
                 "title": "Prune",
                 "icon": "$(wand)"
             },
             {
-                "command": "git-worktree.add",
+                "command": "git-worktree.list.add",
                 "title": "Add",
                 "icon": "$(keybindings-add)"
+            },
+            {
+                "command": "git-worktree.item.open",
+                "title": "Open Worktree",
+                "icon": "$(window)"
+            },
+            {
+                "command": "git-worktree.item.copy",
+                "title": "Copy"
+            },
+            {
+                "command": "git-worktree.item.reveal",
+                "title": "Reveal in File Explorer"
             }
         ],
         "viewsContainers": {
@@ -80,30 +94,42 @@
         "menus": {
             "view/title": [
                 {
-                    "command": "git-worktree.refresh",
+                    "command": "git-worktree.list.refresh",
                     "group": "navigation"
                 }
             ],
             "view/item/context": [
                 {
-                    "command": "git-worktree.refresh",
+                    "command": "git-worktree.list.refresh",
                     "group": "inline",
                     "when": "viewItem == 'worktree-list'"
                 },
                 {
-                    "command": "git-worktree.remove",
+                    "command": "git-worktree.list.prune",
+                    "group": "inline",
+                    "when": "viewItem == 'worktree-list'"
+                },
+                {
+                    "command": "git-worktree.list.add",
+                    "group": "inline",
+                    "when": "viewItem == 'worktree-list'"
+                },
+                {
+                    "command": "git-worktree.item.open",
                     "group": "inline",
                     "when": "viewItem == 'worktree-item'"
                 },
                 {
-                    "command": "git-worktree.prune",
-                    "group": "inline",
-                    "when": "viewItem == 'worktree-list'"
+                    "command": "git-worktree.item.remove",
+                    "when": "viewItem == 'worktree-item'"
                 },
                 {
-                    "command": "git-worktree.add",
-                    "group": "inline",
-                    "when": "viewItem == 'worktree-list'"
+                    "command": "git-worktree.item.copy",
+                    "when": "viewItem == 'worktree-item'"
+                },
+                {
+                    "command": "git-worktree.item.reveal",
+                    "when": "viewItem == 'worktree-item'"
                 }
             ]
         }
@@ -131,6 +157,7 @@
         "prettier": "^3.1.0",
         "ts-loader": "^9.5.0",
         "typescript": "^5.2.2",
+        "vsce": "^2.15.0",
         "webpack": "^5.89.0",
         "webpack-cli": "^5.1.4"
     },

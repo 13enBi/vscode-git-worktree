@@ -1,9 +1,9 @@
+import * as path from 'path';
 import { match, P } from 'ts-pattern';
 import * as vscode from 'vscode';
+import { getConfig } from './config';
 import { getGitRepo, GitRepo, GitWorktree } from './git';
 import { createBranchPickItems } from './pick';
-import { getConfig } from './config';
-import * as path from 'path';
 
 export class WorktreeViewItem extends vscode.TreeItem {
     constructor(
@@ -12,44 +12,61 @@ export class WorktreeViewItem extends vscode.TreeItem {
     ) {
         super(gitWorktree.name, vscode.TreeItemCollapsibleState.None);
         this.tooltip = this.gitWorktree.path;
+
+        this.init();
     }
 
     contextValue = 'worktree-item';
+    command = {
+        title: 'Open Worktree',
+        command: 'git-worktree.item.open',
+        arguments: [this]
+    };
 
-    async init() {
-        return match<GitWorktree, Promise<this>>(this.gitWorktree)
-            .with({ kind: 'bare' }, async () => {
+    init() {
+        match(this.gitWorktree)
+            .with({ kind: 'bare' }, () => {
                 this.label = '(bare)';
                 this.iconPath = new vscode.ThemeIcon('folder');
-                this.command = {
-                    title: 'Open Folder',
-                    command: 'vscode.open',
-                    arguments: [vscode.Uri.from({ scheme: this.gitWorktree.path })]
-                };
-                return this;
             })
-            .with({ kind: 'detached' }, async () => {
-                this.label = '(detached)';
+            .with({ kind: 'detached' }, () => {
+                this.label = this.gitWorktree.hash?.slice(0, 6);
                 this.iconPath = new vscode.ThemeIcon('git-commit');
-                return this;
             })
-            .with({ kind: 'branch' }, async () => {
+            .with({ kind: 'branch' }, () => {
                 const branchName = this.gitWorktree.name;
                 this.label = this.gitWorktree.main ? `${branchName}  ✨` : branchName;
                 this.iconPath = new vscode.ThemeIcon('git-branch');
-
-                return this;
-            })
-            .otherwise(async () => this);
+            });
     }
 
     async remove() {
         if (this.gitWorktree.main) return vscode.window.showErrorMessage(`?`);
 
-        await this.parent.gitRepo?.worktree.remove(this.gitWorktree.path).catch(message => {
-            vscode.window.showErrorMessage(`Remove Worktree Failed,Reason: ${message}`);
-        });
+        await this.parent.gitRepo?.worktree
+            .remove(this.gitWorktree.path)
+            .catch(message => vscode.window.showErrorMessage(`Remove Worktree Failed, Reason: ${message}`));
         this.parent.provider.refresh();
+    }
+
+    async open() {
+        const relativePath = path.relative(this.parent.gitRepo.rootUri.fsPath, this.parent.workspaceFolder.uri.fsPath);
+
+        await vscode.commands.executeCommand(
+            'vscode.openFolder',
+            vscode.Uri.file(path.resolve(this.gitWorktree.path, relativePath)),
+            {
+                forceNewWindow: true
+            }
+        );
+    }
+
+    async copy() {
+        await vscode.env.clipboard.writeText(this.gitWorktree.path);
+    }
+
+    async reveal() {
+        await vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(this.gitWorktree.path));
     }
 }
 
@@ -71,7 +88,7 @@ export class WorktreeViewList extends vscode.TreeItem {
     async getChildren() {
         const worktreeList = await this.gitRepo.worktree.get();
 
-        return Promise.all(worktreeList.map(item => new WorktreeViewItem(item, this).init()));
+        return worktreeList.map(item => new WorktreeViewItem(item, this));
     }
 
     async prune() {
@@ -170,10 +187,14 @@ export const registerWorkspaceFoldersTreeProvider = (context: vscode.ExtensionCo
     const view = vscode.window.registerTreeDataProvider('git-worktree-list', provider);
     context.subscriptions.push(view);
 
-    vscode.commands.registerCommand('git-worktree.refresh', () => provider.refresh());
-    vscode.commands.registerCommand('git-worktree.remove', (node: WorktreeViewItem) => node.remove());
-    vscode.commands.registerCommand('git-worktree.prune', (node: WorktreeViewList) => node.prune());
-    vscode.commands.registerCommand('git-worktree.add', (node: WorktreeViewList) => node.add());
+    vscode.commands.registerCommand('git-worktree.list.refresh', () => provider.refresh());
+    vscode.commands.registerCommand('git-worktree.list.prune', (node: WorktreeViewList) => node.prune());
+    vscode.commands.registerCommand('git-worktree.list.add', (node: WorktreeViewList) => node.add());
+
+    vscode.commands.registerCommand('git-worktree.item.remove', (node: WorktreeViewItem) => node.remove());
+    vscode.commands.registerCommand('git-worktree.item.open', (node: WorktreeViewItem) => node.open());
+    vscode.commands.registerCommand('git-worktree.item.copy', (node: WorktreeViewItem) => node.copy());
+    vscode.commands.registerCommand('git-worktree.item.reveal', (node: WorktreeViewItem) => node.reveal());
 
     return provider;
 };

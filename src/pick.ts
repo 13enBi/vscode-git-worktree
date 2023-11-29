@@ -11,7 +11,7 @@ const createBranchPickItem = (branch: Ref): vscode.QuickPickItem => ({
     kind: vscode.QuickPickItemKind.Default,
     label: branch.name || '(unknown)',
     description: `${branch.remote ? 'remote branch' : ''} $(git-commit) ${branch.commit?.slice(0, 6)}`,
-    iconPath: new vscode.ThemeIcon('git-branch'),
+    iconPath: new vscode.ThemeIcon('git-branch')
 });
 
 export const createBranchPickItems = (branches: Ref[]) => {
