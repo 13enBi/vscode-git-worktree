@@ -97,9 +97,7 @@ export class WorktreeViewItem extends vscode.TreeItem {
         await vscode.commands.executeCommand(
             'vscode.openFolder',
             vscode.Uri.file(path.resolve(this.gitWorktree.path, relativePath)),
-            {
-                forceNewWindow: true
-            }
+            { forceNewWindow: true }
         );
     }
 
