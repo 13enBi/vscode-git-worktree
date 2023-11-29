@@ -34,8 +34,8 @@ export class GitWorktree {
             })
             .with([P.string.select('hash'), 'detached'], ({ hash }) => {
                 this.kind = 'detached';
-                this.name = 'detached';
                 this.hash = hash.replace(/^HEAD\s*/, '');
+                this.name = this.hash.slice(0, 6);
             })
             .with([P.string.select('hash'), P.string.startsWith('branch').select('branch')], ({ hash, branch }) => {
                 this.kind = 'branch';

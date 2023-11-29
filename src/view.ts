@@ -1,9 +1,9 @@
 import * as path from 'path';
 import { match, P } from 'ts-pattern';
 import * as vscode from 'vscode';
-import { getConfig } from './config';
 import { getGitRepo, GitRepo, GitWorktree } from './git';
 import { createBranchPickItems } from './pick';
+import * as fs from 'fs';
 
 export class WorktreeViewItem extends vscode.TreeItem {
     constructor(
@@ -49,9 +49,51 @@ export class WorktreeViewItem extends vscode.TreeItem {
         this.parent.provider.refresh();
     }
 
-    async open() {
-        const relativePath = path.relative(this.parent.gitRepo.rootUri.fsPath, this.parent.workspaceFolder.uri.fsPath);
+    async openWithCodeWorkspace() {
+        const defaultLocation = vscode.workspace
+            .getConfiguration('git-worktree')
+            .get<string | undefined>('defaultLocation');
 
+        if (!defaultLocation)
+            return vscode.window.showErrorMessage('Please set the default worktree location first', { modal: true });
+
+        const codeWorkspacePath = path.resolve(
+            defaultLocation,
+            './.code-workspace',
+            `${path.basename(this.parent.gitRepo.rootUri.fsPath)}.worktrees`,
+            `${this.gitWorktree.name.replaceAll('/', ':')}.code-workspace`
+        );
+
+        if (!fs.existsSync(codeWorkspacePath)) {
+            const relativePath = path.relative(
+                this.parent.gitRepo.rootUri.fsPath,
+                this.parent.workspaceFolder.uri.fsPath
+            );
+            fs.mkdirSync(path.resolve(codeWorkspacePath, '../'), { recursive: true });
+            fs.writeFileSync(
+                codeWorkspacePath,
+                JSON.stringify({
+                    folders: [
+                        {
+                            name: `${this.parent.workspaceFolder.name} - ${this.gitWorktree.name}`,
+                            path: path.resolve(this.gitWorktree.path, relativePath)
+                        }
+                    ]
+                }),
+                {}
+            );
+        }
+
+        await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(codeWorkspacePath), {
+            forceNewWindow: true
+        });
+    }
+
+    async open() {
+        const isOpenWithWorkspace = vscode.workspace.getConfiguration('git-worktree').get<boolean>('openWithWorkspace');
+        if (isOpenWithWorkspace) return this.openWithCodeWorkspace();
+
+        const relativePath = path.relative(this.parent.gitRepo.rootUri.fsPath, this.parent.workspaceFolder.uri.fsPath);
         await vscode.commands.executeCommand(
             'vscode.openFolder',
             vscode.Uri.file(path.resolve(this.gitWorktree.path, relativePath)),
@@ -100,6 +142,13 @@ export class WorktreeViewList extends vscode.TreeItem {
     }
 
     async add() {
+        const defaultLocation = vscode.workspace
+            .getConfiguration('git-worktree')
+            .get<string | undefined>('defaultLocation');
+
+        if (!defaultLocation)
+            return vscode.window.showErrorMessage('Please set the default worktree location first', { modal: true });
+
         const branches = await this.gitRepo.getBranches({ remote: true });
         const selectedBranch = await vscode.window
             .showQuickPick(createBranchPickItems(branches))
@@ -116,35 +165,18 @@ export class WorktreeViewList extends vscode.TreeItem {
         });
         if (!newBranch) return;
 
-        const defaultLocation = getConfig('defaultLocation');
-        const option = await vscode.window.showInformationMessage(
-            `Choose a location in which to create the worktree for "${selectedBranch}"`,
-            { modal: true },
-            // @ts-ignore
-            'Choose Location',
-            defaultLocation ? 'Use Default Location' : void 0
-        );
-        const selectedLocation =
-            option === 'Use Default Location'
-                ? defaultLocation
-                : await vscode.window
-                      .showOpenDialog({
-                          canSelectFiles: false,
-                          canSelectFolders: true,
-                          canSelectMany: false,
-                          defaultUri: this.gitRepo.rootUri,
-                          openLabel: 'Add a git repository folder path',
-                          title: 'Please select the git repository folder path'
-                      })
-                      .then(([uri] = []) => uri?.fsPath);
-
-        if (!selectedLocation) return;
-
         const outputPath = path.resolve(
-            selectedLocation,
+            defaultLocation,
             `${path.basename(this.gitRepo.rootUri.fsPath)}.worktrees`,
             newBranch
         );
+        const option = await vscode.window.showInformationMessage(
+            `The worktree will be created in ${outputPath}`,
+            { modal: true },
+            'Ok'
+        );
+        if (option !== 'Ok') return;
+
         await this.gitRepo.worktree.add(outputPath, {
             'new-branch': newBranch,
             'commit-ish': selectedBranch,
