@@ -23,11 +23,12 @@ export class WorktreeViewItem extends vscode.TreeItem {
     isActive = false;
 
     init() {
-        const relativePath = path.relative(this.gitWorktree.path, this.parent.workspaceFolder.uri.fsPath);
+        this.openUri = vscode.Uri.file(path.resolve(this.gitWorktree.path, this.parent.folderRelativePath));
 
-        this.openUri = vscode.Uri.file(path.resolve(this.gitWorktree.path, relativePath));
+        const relativePath = path.relative(this.gitWorktree.path, this.parent.workspaceFolder.uri.fsPath);
         this.isActive = !relativePath || (!relativePath.startsWith('../') && !path.isAbsolute(relativePath));
         this.contextValue = `worktree-item${this.isActive ? '_active' : ''}`;
+
         this.tooltip = this.gitWorktree.path;
 
         match(this.gitWorktree)
@@ -113,7 +114,7 @@ export class WorktreeViewItem extends vscode.TreeItem {
 
 export class WorktreeViewList extends vscode.TreeItem {
     worktreeList: WorktreeViewItem[] = [];
-    gitRepo!: GitRepo;
+    gitRepo: GitRepo;
 
     contextValue = 'worktree-list';
 
@@ -123,15 +124,12 @@ export class WorktreeViewList extends vscode.TreeItem {
     ) {
         super(workspaceFolder.name, vscode.TreeItemCollapsibleState.Collapsed);
         this.iconPath = new vscode.ThemeIcon('repo');
-        this.initRepo();
+        this.gitRepo = getGitRepo(this.workspaceFolder.uri);
     }
+ 
 
-    initRepo() {
-        try {
-            this.gitRepo = getGitRepo(this.workspaceFolder.uri);
-        } catch (_) {
-            setTimeout(() => this.provider.refresh(), 1e3);
-        }
+    get folderRelativePath() {
+        return path.relative(this.gitRepo.rootUri.fsPath, this.workspaceFolder.uri.fsPath);
     }
 
     async getChildren() {
