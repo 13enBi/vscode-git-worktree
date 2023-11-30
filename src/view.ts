@@ -19,16 +19,18 @@ export class WorktreeViewItem extends vscode.TreeItem {
         command: 'git-worktree.item.open',
         arguments: [this]
     };
-    openUri!: vscode.Uri;
-    isActive = false;
+
+    get openUri() {
+        return vscode.Uri.file(path.resolve(this.gitWorktree.path, this.parent.folderRelativePath));
+    }
+
+    get isActive() {
+        const relativePath = path.relative(this.gitWorktree.path, this.parent.workspaceFolder.uri.fsPath);
+        return !relativePath || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
+    }
 
     init() {
-        this.openUri = vscode.Uri.file(path.resolve(this.gitWorktree.path, this.parent.folderRelativePath));
-
-        const relativePath = path.relative(this.gitWorktree.path, this.parent.workspaceFolder.uri.fsPath);
-        this.isActive = !relativePath || (!relativePath.startsWith('../') && !path.isAbsolute(relativePath));
         this.contextValue = `worktree-item${this.isActive ? '_active' : ''}`;
-
         this.tooltip = this.gitWorktree.path;
 
         match(this.gitWorktree)
@@ -41,8 +43,7 @@ export class WorktreeViewItem extends vscode.TreeItem {
                 this.iconPath = new vscode.ThemeIcon('git-commit');
             })
             .with({ kind: 'branch' }, () => {
-                const branchName = this.gitWorktree.name;
-                this.label = this.isActive ? `${branchName}  ✨` : branchName;
+                this.label = this.isActive ? `${this.gitWorktree.name}  ✨` : this.gitWorktree.name;
                 this.iconPath = new vscode.ThemeIcon('git-branch');
             });
     }
