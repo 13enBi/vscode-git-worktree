@@ -1,9 +1,9 @@
+import * as fs from 'fs';
 import * as path from 'path';
 import { match, P } from 'ts-pattern';
 import * as vscode from 'vscode';
 import { getGitRepo, GitRepo, GitWorktree } from './git';
 import { createBranchPickItems } from './pick';
-import * as fs from 'fs';
 
 export class WorktreeViewItem extends vscode.TreeItem {
     constructor(
@@ -11,19 +11,25 @@ export class WorktreeViewItem extends vscode.TreeItem {
         public parent: WorktreeViewList
     ) {
         super(gitWorktree.name, vscode.TreeItemCollapsibleState.None);
-        this.tooltip = this.gitWorktree.path;
-
         this.init();
     }
 
-    contextValue = 'worktree-item';
     command = {
         title: 'Open Worktree',
         command: 'git-worktree.item.open',
         arguments: [this]
     };
+    openUri!: vscode.Uri;
+    isActive = false;
 
     init() {
+        const relativePath = path.relative(this.gitWorktree.path, this.parent.workspaceFolder.uri.fsPath);
+
+        this.openUri = vscode.Uri.file(path.resolve(this.gitWorktree.path, relativePath));
+        this.isActive = !relativePath || (!relativePath.startsWith('../') && !path.isAbsolute(relativePath));
+        this.contextValue = `worktree-item${this.isActive ? '_active' : ''}`;
+        this.tooltip = this.gitWorktree.path;
+
         match(this.gitWorktree)
             .with({ kind: 'bare' }, () => {
                 this.label = '(bare)';
@@ -35,7 +41,7 @@ export class WorktreeViewItem extends vscode.TreeItem {
             })
             .with({ kind: 'branch' }, () => {
                 const branchName = this.gitWorktree.name;
-                this.label = this.gitWorktree.main ? `${branchName}  ✨` : branchName;
+                this.label = this.isActive ? `${branchName}  ✨` : branchName;
                 this.iconPath = new vscode.ThemeIcon('git-branch');
             });
     }
@@ -65,10 +71,6 @@ export class WorktreeViewItem extends vscode.TreeItem {
         );
 
         if (!fs.existsSync(codeWorkspacePath)) {
-            const relativePath = path.relative(
-                this.parent.gitRepo.rootUri.fsPath,
-                this.parent.workspaceFolder.uri.fsPath
-            );
             fs.mkdirSync(path.resolve(codeWorkspacePath, '../'), { recursive: true });
             fs.writeFileSync(
                 codeWorkspacePath,
@@ -76,7 +78,7 @@ export class WorktreeViewItem extends vscode.TreeItem {
                     folders: [
                         {
                             name: `${this.parent.workspaceFolder.name} - ${this.gitWorktree.name}`,
-                            path: path.resolve(this.gitWorktree.path, relativePath)
+                            path: this.openUri.fsPath
                         }
                     ]
                 }),
@@ -90,15 +92,14 @@ export class WorktreeViewItem extends vscode.TreeItem {
     }
 
     async open() {
+        if (this.isActive) return;
+
         const isOpenWithWorkspace = vscode.workspace.getConfiguration('git-worktree').get<boolean>('openWithWorkspace');
         if (isOpenWithWorkspace) return this.openWithCodeWorkspace();
 
-        const relativePath = path.relative(this.parent.gitRepo.rootUri.fsPath, this.parent.workspaceFolder.uri.fsPath);
-        await vscode.commands.executeCommand(
-            'vscode.openFolder',
-            vscode.Uri.file(path.resolve(this.gitWorktree.path, relativePath)),
-            { forceNewWindow: true }
-        );
+        await vscode.commands.executeCommand('vscode.openFolder', this.openUri, {
+            forceNewWindow: true
+        });
     }
 
     async copy() {
@@ -112,7 +113,7 @@ export class WorktreeViewItem extends vscode.TreeItem {
 
 export class WorktreeViewList extends vscode.TreeItem {
     worktreeList: WorktreeViewItem[] = [];
-    gitRepo: GitRepo;
+    gitRepo!: GitRepo;
 
     contextValue = 'worktree-list';
 
@@ -122,7 +123,15 @@ export class WorktreeViewList extends vscode.TreeItem {
     ) {
         super(workspaceFolder.name, vscode.TreeItemCollapsibleState.Collapsed);
         this.iconPath = new vscode.ThemeIcon('repo');
-        this.gitRepo = getGitRepo(this.workspaceFolder.uri);
+        this.initRepo();
+    }
+
+    initRepo() {
+        try {
+            this.gitRepo = getGitRepo(this.workspaceFolder.uri);
+        } catch (_) {
+            setTimeout(() => this.provider.refresh(), 1e3);
+        }
     }
 
     async getChildren() {

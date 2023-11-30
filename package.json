@@ -125,11 +125,11 @@
                 },
                 {
                     "command": "git-worktree.item.copy",
-                    "when": "viewItem == 'worktree-item'"
+                    "when": "viewItem =~ /^worktree-item/"
                 },
                 {
                     "command": "git-worktree.item.reveal",
-                    "when": "viewItem == 'worktree-item'"
+                    "when": "viewItem =~ /^worktree-item/"
                 }
             ]
         }
