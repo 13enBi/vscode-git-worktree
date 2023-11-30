@@ -57,6 +57,9 @@ export class WorktreeViewItem extends vscode.TreeItem {
     }
 
     async openWithCodeWorkspace() {
+        const { mainWorktree } = this.parent;
+        if (!mainWorktree) return;
+
         const defaultLocation = vscode.workspace
             .getConfiguration('git-worktree')
             .get<string | undefined>('defaultLocation');
@@ -67,7 +70,7 @@ export class WorktreeViewItem extends vscode.TreeItem {
         const codeWorkspacePath = path.resolve(
             defaultLocation,
             './.code-workspace',
-            `${path.basename(this.parent.gitRepo.rootUri.fsPath)}.worktrees`,
+            `${path.basename(mainWorktree.path)}.worktrees`,
             `${this.gitWorktree.name.replaceAll('/', ':')}.code-workspace`
         );
 
@@ -113,8 +116,8 @@ export class WorktreeViewItem extends vscode.TreeItem {
 }
 
 export class WorktreeViewList extends vscode.TreeItem {
-    worktreeList: WorktreeViewItem[] = [];
-    gitRepo: GitRepo;
+    worktreeList: GitWorktree[] = [];
+    gitRepo?: GitRepo;
 
     contextValue = 'worktree-list';
 
@@ -126,19 +129,26 @@ export class WorktreeViewList extends vscode.TreeItem {
         this.iconPath = new vscode.ThemeIcon('repo');
         this.gitRepo = getGitRepo(this.workspaceFolder.uri);
     }
- 
 
     get folderRelativePath() {
+        if (!this.gitRepo) return '';
         return path.relative(this.gitRepo.rootUri.fsPath, this.workspaceFolder.uri.fsPath);
     }
 
-    async getChildren() {
-        const worktreeList = await this.gitRepo.worktree.get();
+    get mainWorktree() {
+        return this.worktreeList.find(item => item.main);
+    }
 
-        return worktreeList.map(item => new WorktreeViewItem(item, this));
+    async getChildren() {
+        if (!this.gitRepo) return [];
+        if (!this.worktreeList.length) this.worktreeList = await this.gitRepo.worktree.get();
+
+        return this.worktreeList.map(item => new WorktreeViewItem(item, this));
     }
 
     async prune() {
+        if (!this.gitRepo) return;
+
         const output = await this.gitRepo.worktree.prune({ 'dry-run': true });
         const select = await vscode.window.showInformationMessage(output, 'Ok', 'Cancel');
         if (select !== 'Ok') return;
@@ -147,6 +157,8 @@ export class WorktreeViewList extends vscode.TreeItem {
     }
 
     async add() {
+        if (!this.gitRepo) return;
+
         const defaultLocation = vscode.workspace
             .getConfiguration('git-worktree')
             .get<string | undefined>('defaultLocation');
