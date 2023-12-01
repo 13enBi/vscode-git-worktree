@@ -267,6 +267,9 @@ export class FavoritesProvider extends WorkspaceFoldersTreeProvider {
 
         vscode.commands.registerCommand('git-worktree.favorites.add', () => provider.add());
         vscode.commands.registerCommand('git-worktree.favorites.refresh', () => provider.refresh());
+        vscode.commands.registerCommand('git-worktree.favorites.remove', (node: WorktreeViewList) =>
+            provider.remove(node.workspaceFolder.uri.fsPath)
+        );
 
         context.subscriptions.push(view);
 
@@ -274,7 +277,7 @@ export class FavoritesProvider extends WorkspaceFoldersTreeProvider {
     }
 
     contextValue = 'worktree-favorites';
-    favorites: string[];
+    favorites: Set<string>;
 
     constructor(public context: vscode.ExtensionContext) {
         const favorites = context.globalState.get<string[]>('worktree-favorites', []);
@@ -285,7 +288,7 @@ export class FavoritesProvider extends WorkspaceFoldersTreeProvider {
         }));
 
         super(folders);
-        this.favorites = favorites;
+        this.favorites = new Set(favorites);
     }
 
     async add() {
@@ -300,7 +303,13 @@ export class FavoritesProvider extends WorkspaceFoldersTreeProvider {
         );
         if (!uri) return;
 
-        this.favorites.push(uri.fsPath);
+        this.favorites.add(uri.fsPath);
+        await this.context.globalState.update('worktree-favorites', [...this.favorites]);
+        this.refresh();
+    }
+
+    async remove(path: string) {
+        this.favorites.delete(path);
         await this.context.globalState.update('worktree-favorites', [...this.favorites]);
         this.refresh();
     }

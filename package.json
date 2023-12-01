@@ -4,6 +4,8 @@
     "description": "",
     "publisher": "13enbi",
     "version": "0.0.3",
+    "repository": {},
+    "license": "MIT",
     "engines": {
         "vscode": "^1.84.0"
     },
@@ -76,6 +78,11 @@
                 "command": "git-worktree.favorites.refresh",
                 "title": "Refresh",
                 "icon": "$(search-refresh)"
+            },
+            {
+                "command": "git-worktree.favorites.remove",
+                "title": "Remove",
+                "icon": "$(notebook-delete-cell)"
             }
         ],
         "viewsContainers": {
@@ -121,14 +128,19 @@
             ],
             "view/item/context": [
                 {
-                    "command": "git-worktree.list.refresh",
-                    "group": "inline",
-                    "when": "view == git-worktree.list &&  viewItem == 'worktree-list'"
-                },
-                {
                     "command": "git-worktree.favorites.refresh",
                     "group": "inline",
                     "when": "view == git-worktree-favorites && viewItem == 'worktree-list'"
+                },
+                {
+                    "command": "git-worktree.favorites.remove",
+                    "group": "inline",
+                    "when": "view == git-worktree-favorites && viewItem == 'worktree-list'"
+                },
+                {
+                    "command": "git-worktree.list.refresh",
+                    "group": "inline",
+                    "when": "view == git-worktree.list &&  viewItem == 'worktree-list'"
                 },
                 {
                     "command": "git-worktree.list.prune",
