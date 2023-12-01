@@ -1,8 +1,8 @@
 import { execaCommand } from 'execa';
+import { memoize } from 'lodash';
 import { match, P } from 'ts-pattern';
 import * as vscode from 'vscode';
 import { API, GitExtension, Repository } from './types/git';
-import { memoize } from 'lodash';
 
 export const getVscodeGitApi = memoize<() => API | null>(
     () =>
@@ -84,10 +84,10 @@ export class GitWorktreeApi {
 export type GitRepo = Repository & {
     worktree: GitWorktreeApi;
 };
-export const getGitRepo = (uri: vscode.Uri): GitRepo => {
+export const getGitRepo = async (uri: vscode.Uri): Promise<GitRepo | undefined> => {
     const baseApi = getVscodeGitApi();
-    const repo = baseApi?.getRepository(uri);
-    if (!repo) throw new Error(`get git repo fail, path: ${uri.path}`);
+    const repo = await baseApi?.openRepository(uri);
+    if (!repo) return;
 
     return Object.assign(repo, { worktree: new GitWorktreeApi(repo) });
 };

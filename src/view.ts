@@ -4,6 +4,7 @@ import { match, P } from 'ts-pattern';
 import * as vscode from 'vscode';
 import { getGitRepo, GitRepo, GitWorktree } from './git';
 import { createBranchPickItems } from './pick';
+import { first } from 'lodash';
 
 export class WorktreeViewItem extends vscode.TreeItem {
     constructor(
@@ -25,6 +26,8 @@ export class WorktreeViewItem extends vscode.TreeItem {
     }
 
     get isActive() {
+        if (!vscode.workspace.getWorkspaceFolder(this.parent.workspaceFolder.uri)) return false;
+
         const relativePath = path.relative(this.gitWorktree.path, this.parent.workspaceFolder.uri.fsPath);
         return !relativePath || (!relativePath.startsWith('..') && !path.isAbsolute(relativePath));
     }
@@ -128,7 +131,12 @@ export class WorktreeViewList extends vscode.TreeItem {
     ) {
         super(workspaceFolder.name, vscode.TreeItemCollapsibleState.Collapsed);
         this.iconPath = new vscode.ThemeIcon('repo');
-        this.gitRepo = getGitRepo(this.workspaceFolder.uri);
+    }
+
+    async init() {
+        this.gitRepo = await getGitRepo(this.workspaceFolder.uri);
+
+        return this;
     }
 
     get folderRelativePath() {
@@ -205,6 +213,24 @@ export class WorktreeViewList extends vscode.TreeItem {
 }
 
 export class WorkspaceFoldersTreeProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
+    static register(context: vscode.ExtensionContext) {
+        const provider = new WorkspaceFoldersTreeProvider(vscode.workspace.workspaceFolders);
+        const view = vscode.window.registerTreeDataProvider('git-worktree-list', provider);
+
+        vscode.commands.registerCommand('git-worktree.list.refresh', () => provider.refresh());
+        vscode.commands.registerCommand('git-worktree.list.prune', (node: WorktreeViewList) => node.prune());
+        vscode.commands.registerCommand('git-worktree.list.add', (node: WorktreeViewList) => node.add());
+
+        vscode.commands.registerCommand('git-worktree.item.remove', (node: WorktreeViewItem) => node.remove());
+        vscode.commands.registerCommand('git-worktree.item.open', (node: WorktreeViewItem) => node.open());
+        vscode.commands.registerCommand('git-worktree.item.copy', (node: WorktreeViewItem) => node.copy());
+        vscode.commands.registerCommand('git-worktree.item.reveal', (node: WorktreeViewItem) => node.reveal());
+
+        context.subscriptions.push(view);
+
+        return provider;
+    }
+
     constructor(public workspaceFolders: readonly vscode.WorkspaceFolder[] = []) {}
 
     private eventEmitter = new vscode.EventEmitter<vscode.TreeItem | undefined>();
@@ -226,25 +252,61 @@ export class WorkspaceFoldersTreeProvider implements vscode.TreeDataProvider<vsc
 
     getChildren(element?: vscode.TreeItem) {
         return match(element)
-            .with(P.nullish, () => this.workspaceFolders.map(item => new WorktreeViewList(item, this)))
+            .with(P.nullish, () =>
+                Promise.all(this.workspaceFolders.map(item => new WorktreeViewList(item, this).init()))
+            )
             .with(P.instanceOf(WorktreeViewList), element => element.getChildren())
             .otherwise(() => []);
     }
 }
 
+export class FavoritesProvider extends WorkspaceFoldersTreeProvider {
+    static register(context: vscode.ExtensionContext) {
+        const provider = new FavoritesProvider(context);
+        const view = vscode.window.registerTreeDataProvider('git-worktree-favorites', provider);
+
+        vscode.commands.registerCommand('git-worktree.favorites.add', () => provider.add());
+        vscode.commands.registerCommand('git-worktree.favorites.refresh', () => provider.refresh());
+
+        context.subscriptions.push(view);
+
+        return provider;
+    }
+
+    contextValue = 'worktree-favorites';
+    favorites: string[];
+
+    constructor(public context: vscode.ExtensionContext) {
+        const favorites = context.globalState.get<string[]>('worktree-favorites', []);
+        const folders: vscode.WorkspaceFolder[] = favorites.map((item, index) => ({
+            index,
+            uri: vscode.Uri.file(item),
+            name: path.basename(item)
+        }));
+
+        super(folders);
+        this.favorites = favorites;
+    }
+
+    async add() {
+        const uri = first(
+            await vscode.window.showOpenDialog({
+                canSelectFiles: false,
+                canSelectFolders: true,
+                canSelectMany: false,
+                openLabel: 'Select Worktree Location',
+                title: ''
+            })
+        );
+        if (!uri) return;
+
+        this.favorites.push(uri.fsPath);
+        await this.context.globalState.update('worktree-favorites', [...this.favorites]);
+        this.refresh();
+    }
+}
+
 export const registerWorkspaceFoldersTreeProvider = (context: vscode.ExtensionContext) => {
-    const provider = new WorkspaceFoldersTreeProvider(vscode.workspace.workspaceFolders);
-    const view = vscode.window.registerTreeDataProvider('git-worktree-list', provider);
-    context.subscriptions.push(view);
-
-    vscode.commands.registerCommand('git-worktree.list.refresh', () => provider.refresh());
-    vscode.commands.registerCommand('git-worktree.list.prune', (node: WorktreeViewList) => node.prune());
-    vscode.commands.registerCommand('git-worktree.list.add', (node: WorktreeViewList) => node.add());
-
-    vscode.commands.registerCommand('git-worktree.item.remove', (node: WorktreeViewItem) => node.remove());
-    vscode.commands.registerCommand('git-worktree.item.open', (node: WorktreeViewItem) => node.open());
-    vscode.commands.registerCommand('git-worktree.item.copy', (node: WorktreeViewItem) => node.copy());
-    vscode.commands.registerCommand('git-worktree.item.reveal', (node: WorktreeViewItem) => node.reveal());
-
-    return provider;
+    WorkspaceFoldersTreeProvider.register(context);
+    FavoritesProvider.register(context);
 };
