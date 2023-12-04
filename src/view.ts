@@ -211,7 +211,7 @@ export class WorktreeViewList extends vscode.TreeItem {
         await this.gitRepo.worktree.add(outputPath, {
             'new-branch': newBranch,
             'commit-ish': selectedBranch,
-            track: true
+            track: false
         });
         this.provider.refresh();
     }
