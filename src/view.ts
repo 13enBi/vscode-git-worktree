@@ -87,7 +87,7 @@ export class WorktreeViewItem extends vscode.TreeItem {
                     folders: [
                         this.parent.folderRelativePath && {
                             name: repoName,
-                            path: this.parent.gitRepo!.rootUri.fsPath
+                            path: this.gitWorktree.path
                         },
                         {
                             name: `${this.parent.workspaceFolder.name} - ${this.gitWorktree.name}`,
@@ -164,7 +164,7 @@ export class WorktreeViewList extends vscode.TreeItem {
         if (!this.gitRepo) return;
 
         const output = await this.gitRepo.worktree.prune({ 'dry-run': true });
-        const select = await vscode.window.showInformationMessage(output, 'Ok', 'Cancel');
+        const select = await vscode.window.showInformationMessage(output, { modal: true }, 'Ok', 'Cancel');
         if (select !== 'Ok') return;
         await this.gitRepo.worktree.prune();
         this.provider.refresh();
