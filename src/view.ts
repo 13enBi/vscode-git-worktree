@@ -140,6 +140,7 @@ export class WorktreeViewList extends vscode.TreeItem {
 
     async init() {
         this.gitRepo = await getGitRepo(this.workspaceFolder.uri);
+        if (this.gitRepo) this.worktreeList = await this.gitRepo.worktree.get();
 
         return this;
     }
@@ -154,9 +155,6 @@ export class WorktreeViewList extends vscode.TreeItem {
     }
 
     async getChildren() {
-        if (!this.gitRepo) return [];
-        if (!this.worktreeList.length) this.worktreeList = await this.gitRepo.worktree.get();
-
         return this.worktreeList.map(item => new WorktreeViewItem(item, this));
     }
 
@@ -164,6 +162,8 @@ export class WorktreeViewList extends vscode.TreeItem {
         if (!this.gitRepo) return;
 
         const output = await this.gitRepo.worktree.prune({ 'dry-run': true });
+        if (!output) return;
+
         const select = await vscode.window.showInformationMessage(output, { modal: true }, 'Ok', 'Cancel');
         if (select !== 'Ok') return;
         await this.gitRepo.worktree.prune();
