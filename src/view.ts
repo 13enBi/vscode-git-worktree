@@ -111,7 +111,8 @@ export class WorktreeViewItem extends vscode.TreeItem {
         if (isOpenWithWorkspace) return this.openWithCodeWorkspace();
 
         await vscode.commands.executeCommand('vscode.openFolder', this.openUri, {
-            forceNewWindow: true
+            forceNewWindow: true,
+            noRecentEntry: true
         });
     }
 
