@@ -3,7 +3,7 @@
     "displayName": "vscode-git-worktree",
     "description": "",
     "publisher": "13enbi",
-    "version": "0.0.7",
+    "version": "0.1.0",
     "repository": {},
     "license": "MIT",
     "engines": {
@@ -90,7 +90,7 @@
                 {
                     "id": "git-worktree",
                     "icon": "resources/icon.svg",
-                    "title": "Git Worktree"
+                    "title": "Git Worktree 0.1.0"
                 }
             ]
         },

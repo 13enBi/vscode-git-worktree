@@ -1,10 +1,10 @@
 import * as fs from 'fs';
+import { first } from 'lodash';
 import * as path from 'path';
 import { match, P } from 'ts-pattern';
 import * as vscode from 'vscode';
 import { getGitRepo, GitRepo, GitWorktree } from './git';
 import { createBranchPickItems } from './pick';
-import { first } from 'lodash';
 
 export class WorktreeViewItem extends vscode.TreeItem {
     constructor(
@@ -81,26 +81,26 @@ export class WorktreeViewItem extends vscode.TreeItem {
 
         if (!fs.existsSync(codeWorkspacePath)) {
             fs.mkdirSync(path.resolve(codeWorkspacePath, '../'), { recursive: true });
-            fs.writeFileSync(
-                codeWorkspacePath,
-                JSON.stringify({
-                    folders: [
-                        this.parent.folderRelativePath && {
-                            name: repoName,
-                            path: this.gitWorktree.path
-                        },
-                        {
-                            name: `${this.parent.workspaceFolder.name} - ${this.gitWorktree.name}`,
-                            path: this.openUri.fsPath
-                        }
-                    ]
-                }),
-                {}
-            );
+
+            const folderName = this.parent.workspaceFolder.name.split('-')[0].trim();
+            const workspaceConfig = {
+                folders: [
+                    this.parent.folderRelativePath && {
+                        name: repoName,
+                        path: this.gitWorktree.path
+                    },
+                    {
+                        name: `${folderName} - ${this.gitWorktree.name}`,
+                        path: this.openUri.fsPath
+                    }
+                ]
+            };
+            fs.writeFileSync(codeWorkspacePath, JSON.stringify(workspaceConfig), 'utf-8');
         }
 
         await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(codeWorkspacePath), {
-            forceNewWindow: true
+            forceNewWindow: true,
+            noRecentEntry: true
         });
     }
 

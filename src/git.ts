@@ -2,6 +2,7 @@ import { execaCommand } from 'execa';
 import { memoize } from 'lodash';
 import { match, P } from 'ts-pattern';
 import * as vscode from 'vscode';
+import { Logger } from './extension';
 import { API, GitExtension, Repository } from './types/git';
 
 export const getVscodeGitApi = memoize<() => API | null>(
@@ -51,6 +52,7 @@ export class GitWorktreeApi {
     constructor(private repo: Repository) {}
 
     private $(command: string) {
+        Logger.appendLine(command);
         return execaCommand(command, { cwd: this.repo.rootUri.fsPath }).then(({ stdout }) => stdout);
     }
 
@@ -72,7 +74,7 @@ export class GitWorktreeApi {
         return this.$(
             `git worktree add ${getArgs(
                 options?.force && '--force',
-                options?.track && '--track',
+                options?.track ? '--track' : '--no-track',
                 options?.['new-branch'] && `-b ${options['new-branch']}`,
                 output,
                 options?.['commit-ish']
