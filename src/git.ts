@@ -42,7 +42,8 @@ export class GitWorktree {
                 this.kind = 'branch';
                 this.name = branch.replace(/^branch\s*refs\/heads\//, '');
                 this.hash = hash.replace(/^HEAD\s*/, '');
-            });
+            })
+            .run();
     }
 }
 
@@ -74,7 +75,10 @@ export class GitWorktreeApi {
         return this.$(
             `git worktree add ${getArgs(
                 options?.force && '--force',
-                options?.track ? '--track' : '--no-track',
+                match(options?.track)
+                    .with(true, () => '--track')
+                    .with(false, () => '--no-track')
+                    .otherwise(() => undefined),
                 options?.['new-branch'] && `-b ${options['new-branch']}`,
                 output,
                 options?.['commit-ish']

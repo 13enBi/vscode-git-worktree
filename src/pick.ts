@@ -2,16 +2,21 @@ import * as vscode from 'vscode';
 import { Ref } from './types/git';
 import { groupBy } from 'lodash';
 
-export const createSeparator = (label = ''): vscode.QuickPickItem => ({
+type PickBranchItem = vscode.QuickPickItem & {
+    branch?: Ref;
+};
+
+export const createSeparator = (label = ''): PickBranchItem => ({
     kind: vscode.QuickPickItemKind.Separator,
     label
 });
 
-const createBranchPickItem = (branch: Ref): vscode.QuickPickItem => ({
+const createBranchPickItem = (branch: Ref): PickBranchItem => ({
     kind: vscode.QuickPickItemKind.Default,
     label: branch.name || '(unknown)',
     description: `${branch.remote ? 'remote branch' : ''} $(git-commit) ${branch.commit?.slice(0, 6)}`,
-    iconPath: new vscode.ThemeIcon('git-branch')
+    iconPath: new vscode.ThemeIcon('git-branch'),
+    branch
 });
 
 export const createBranchPickItems = (branches: Ref[]) => {

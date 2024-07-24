@@ -184,36 +184,66 @@ export class WorktreeViewList extends vscode.TreeItem {
         const branches = await this.gitRepo.getBranches({ remote: true });
         const selectedBranch = await vscode.window
             .showQuickPick(createBranchPickItems(branches))
-            .then(selected => selected?.label);
-        if (!selectedBranch) return;
+            .then(selected => selected?.branch);
+        if (!selectedBranch?.name) return;
 
-        const newBranch = await vscode.window.showInputBox({
-            title: `Create Worktree from "${selectedBranch}"`,
-            placeHolder: 'Please provide a name for the new branch',
-            validateInput: async value => {
-                if (!value) return 'please enter a valid branch name';
-                if (branches.find(({ name }) => name === value)) return `A branch named "${value}" already exists`;
-            }
-        });
-        if (!newBranch) return;
+        const getOutputPath = (branch: string) =>
+            path.resolve(defaultLocation, `${path.basename(this.gitRepo!.rootUri.fsPath)}.worktrees`, branch);
 
-        const outputPath = path.resolve(
-            defaultLocation,
-            `${path.basename(this.gitRepo.rootUri.fsPath)}.worktrees`,
-            newBranch
-        );
-        const option = await vscode.window.showInformationMessage(
-            `The worktree will be created in ${outputPath}`,
-            { modal: true },
-            'Ok'
-        );
-        if (option !== 'Ok') return;
+        const way = await vscode.window
+            .showQuickPick([
+                selectedBranch.remote
+                    ? {
+                          label: 'Create Worktree for New Local Branch',
+                          value: 'origin' as const,
+                          detail: `Will create worktree in ${getOutputPath(selectedBranch.name.replace('origin/', ''))}`
+                      }
+                    : {
+                          label: 'Create Worktree for Current Branch',
+                          value: 'current' as const,
+                          detail: `Will create worktree in ${getOutputPath(selectedBranch.name)}`
+                      },
+                {
+                    label: 'Create Worktree for New Branch Named...',
+                    value: 'new' as const,
+                    detail: `Will create worktree in ${getOutputPath('<new-branch-name>')}`
+                }
+            ])
+            .then(selected => selected?.value);
 
-        await this.gitRepo.worktree.add(outputPath, {
-            'new-branch': newBranch,
-            'commit-ish': selectedBranch,
-            track: false
-        });
+        switch (way) {
+            case 'origin':
+                await this.gitRepo.worktree.add(getOutputPath(selectedBranch.name), {
+                    'new-branch': selectedBranch.name.replace('origin/', ''),
+                    'commit-ish': selectedBranch.name
+                });
+                return;
+
+            case 'current':
+                await this.gitRepo.worktree.add(getOutputPath(selectedBranch.name), {
+                    'commit-ish': selectedBranch.name
+                });
+                return;
+
+            case 'new':
+                const targetBranch = await vscode.window.showInputBox({
+                    title: `Create Worktree from "${selectedBranch}"`,
+                    placeHolder: 'Please provide a name for the new branch',
+                    validateInput: async value => {
+                        if (!value) return 'please enter a valid branch name';
+                        if (branches.find(({ name }) => name === value))
+                            return `A branch named "${value}" already exists`;
+                    }
+                });
+                if (!targetBranch) return;
+
+                await this.gitRepo.worktree.add(getOutputPath(targetBranch), {
+                    'new-branch': targetBranch,
+                    'commit-ish': selectedBranch.name
+                });
+                return;
+        }
+
         this.provider.refresh();
     }
 }
@@ -247,8 +277,12 @@ export class WorkspaceFoldersTreeProvider implements vscode.TreeDataProvider<vsc
     private eventEmitter = new vscode.EventEmitter<vscode.TreeItem | undefined>();
     onDidChangeTreeData = this.eventEmitter.event;
 
-    refresh() {
+    refresh(timeout = 3000) {
         this.eventEmitter.fire(undefined);
+        if (timeout)
+            setTimeout(() => {
+                this.eventEmitter.fire(undefined);
+            }, timeout);
     }
 
     getParent(element: vscode.TreeItem) {
