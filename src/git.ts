@@ -43,7 +43,11 @@ export class GitWorktree {
                 this.name = branch.replace(/^branch\s*refs\/heads\//, '');
                 this.hash = hash.replace(/^HEAD\s*/, '');
             })
-            .run();
+            .otherwise(() => {
+                this.kind = 'unknown';
+                this.name = '';
+                this.hash = '';
+            });
     }
 }
 
